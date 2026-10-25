@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -23,10 +22,16 @@ import com.example.dream_sentinel.ui.settings.SettingsRoute
 import com.example.dream_sentinel.ui.theme.DreamSentinelTheme
 import com.example.dream_sentinel.ui.theme.MainColorWhite
 
+import androidx.activity.SystemBarStyle
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         setContent {
             DreamSentinelTheme {
                 DreamSentinelApp()
@@ -74,10 +79,7 @@ fun DreamSentinelApp() {
             )
         }
         AppScreen.MUSIC -> {
-            MainScreenScaffold(
-                title = "Prepare your mix",
-                subtitle = "A softer soundtrack for switching off.",
-                selectedTab = NavTab.MUSIC,
+            com.example.dream_sentinel.ui.music.MusicScreen(
                 onTabSelected = { tab ->
                     currentScreen = when (tab) {
                         NavTab.MUSIC -> AppScreen.MUSIC
@@ -87,22 +89,10 @@ fun DreamSentinelApp() {
                     }
                 },
                 onSettingsClick = openSettings
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Text("Music Screen Content", color = MainColorWhite)
-                }
-            }
+            )
         }
         AppScreen.SLEEP -> {
-            MainScreenScaffold(
-                title = "Sleep Tracker",
-                subtitle = "Track your sleep patterns and quality.",
-                selectedTab = NavTab.SLEEP,
+            com.example.dream_sentinel.ui.sleep.SleepScreen(
                 onTabSelected = { tab ->
                     currentScreen = when (tab) {
                         NavTab.MUSIC -> AppScreen.MUSIC
@@ -112,22 +102,10 @@ fun DreamSentinelApp() {
                     }
                 },
                 onSettingsClick = openSettings
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Text("Sleep Screen Content", color = MainColorWhite)
-                }
-            }
+            )
         }
         AppScreen.HISTORY -> {
-            MainScreenScaffold(
-                title = "Sleep History",
-                subtitle = "Review your past sleep logs.",
-                selectedTab = NavTab.HISTORY,
+            com.example.dream_sentinel.ui.history.HistoryScreen(
                 onTabSelected = { tab ->
                     currentScreen = when (tab) {
                         NavTab.MUSIC -> AppScreen.MUSIC
@@ -137,16 +115,7 @@ fun DreamSentinelApp() {
                     }
                 },
                 onSettingsClick = openSettings
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Text("History Screen Content", color = MainColorWhite)
-                }
-            }
+            )
         }
     }
 }

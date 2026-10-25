@@ -16,17 +16,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.dream_sentinel.ui.theme.DreamSentinelTheme
 import com.example.dream_sentinel.ui.theme.MainColorWhite
 import com.example.dream_sentinel.ui.theme.SideColorWhite
 import java.util.Locale
@@ -96,10 +102,13 @@ private fun WheelColumn(
     itemHeight: Dp = 50.dp
 ) {
     val totalItems = 10_000 * count
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+    val halfItemPx = itemHeightPx / 2f
+
     // Place selectedIndex at index (initialIndex + 1) which is in the center
     val initialIndex = remember {
         val base = (totalItems / 2) - ((totalItems / 2) % count)
-        base + selectedIndex - 1
+        (base + selectedIndex - 1)
     }
 
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
@@ -107,20 +116,29 @@ private fun WheelColumn(
 
     val currentCenterIndex = remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex + 1
+            if (listState.firstVisibleItemScrollOffset > halfItemPx) {
+                listState.firstVisibleItemIndex + 2
+            } else {
+                listState.firstVisibleItemIndex + 1
+            }
         }
     }
 
     val currentCenterValue = remember {
         derivedStateOf {
-            ((listState.firstVisibleItemIndex + 1) % count + count) % count
+            ((currentCenterIndex.value % count) + count) % count
         }
     }
 
+    // Smoothly snap to center item when scroll stops
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
             .collect { isScrolling ->
                 if (!isScrolling) {
+                    val targetFirstVisible = currentCenterIndex.value - 1
+                    if (listState.firstVisibleItemIndex != targetFirstVisible || listState.firstVisibleItemScrollOffset != 0) {
+                        listState.animateScrollToItem(targetFirstVisible, 0)
+                    }
                     onIndexSelected(currentCenterValue.value)
                 }
             }
@@ -150,6 +168,28 @@ private fun WheelColumn(
                     textAlign = TextAlign.Center
                 )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0D0F19)
+@Composable
+private fun ClockWheelPickerPreview() {
+    var hour by remember { mutableIntStateOf(8) }
+    var minute by remember { mutableIntStateOf(0) }
+
+    DreamSentinelTheme {
+        Box(
+            modifier = Modifier
+                .background(Color(0xFF0D0F19))
+                .padding(20.dp)
+        ) {
+            ClockWheelPicker(
+                hour = hour,
+                minute = minute,
+                onHourChange = { hour = it },
+                onMinuteChange = { minute = it }
+            )
         }
     }
 }

@@ -45,6 +45,8 @@ import com.example.dream_sentinel.ui.theme.DreamSentinelTheme
 import com.example.dream_sentinel.ui.theme.MainColor
 import com.example.dream_sentinel.ui.theme.MainColorWhite
 import com.example.dream_sentinel.ui.theme.SideColorWhite
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 enum class AlarmMode {
@@ -56,7 +58,8 @@ enum class AlarmMode {
 fun AlarmScreen(
     modifier: Modifier = Modifier,
     onTabSelected: (NavTab) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onSaveAlarmClick: (alarmTitle: String) -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(AlarmMode.AT_A_TIME) }
     var hour by remember { mutableIntStateOf(8) }
@@ -91,7 +94,7 @@ fun AlarmScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Calculated Time Info Line
+        // Calculated Time Info Line (Real Phone Time Calculation)
         CalculatedTimeInfo(
             mode = mode,
             hour = hour,
@@ -207,14 +210,17 @@ fun AlarmScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Save Button CTA
-        val ctaText = if (mode == AlarmMode.AT_A_TIME) {
-            String.format(Locale.getDefault(), "Save alarm · %02d:%02d", hour, minute)
-        } else {
-            String.format(Locale.getDefault(), "Save timer · %dh %dm", hour, minute)
-        }
+        val ctaText = if (mode == AlarmMode.AT_A_TIME) "Save alarm" else "Save timer"
 
         Button(
-            onClick = { },
+            onClick = {
+                val formattedTitle = if (mode == AlarmMode.AT_A_TIME) {
+                    String.format(Locale.getDefault(), "%02d:%02d alarm · %s", hour, minute, soundOption)
+                } else {
+                    String.format(Locale.getDefault(), "%dh %dm timer · %s", hour, minute, soundOption)
+                }
+                onSaveAlarmClick(formattedTitle)
+            },
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MainColor,
@@ -226,7 +232,7 @@ fun AlarmScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "✓  $ctaText",
+                    text = ctaText,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = BlackColor
@@ -265,12 +271,45 @@ private fun CalculatedTimeInfo(
 
         Spacer(modifier = Modifier.width(8.dp))
 
+        val now = remember(hour, minute, mode) { Calendar.getInstance() }
+
         val infoText = if (mode == AlarmMode.AT_A_TIME) {
-            // Alarm mode: Displays in how many hours
-            "Today, Fri 23 Oct · in ${hour}h ${minute}m"
+            val alarmCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (before(now)) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+            }
+
+            val diffMillis = alarmCal.timeInMillis - now.timeInMillis
+            val diffMinutesTotal = (diffMillis / (1000 * 60)).toInt()
+            val diffHours = diffMinutesTotal / 60
+            val diffMins = diffMinutesTotal % 60
+
+            val isToday = alarmCal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)
+            val dayPrefix = if (isToday) "Today" else "Tomorrow"
+            val dateFormatter = SimpleDateFormat("EEE d MMM", Locale.getDefault())
+            val formattedDate = dateFormatter.format(alarmCal.time)
+
+            val timeRemainingStr = when {
+                diffHours > 0 && diffMins > 0 -> "${diffHours}h ${diffMins}m"
+                diffHours > 0 -> "${diffHours}h"
+                else -> "${diffMins}m"
+            }
+
+            "$dayPrefix, $formattedDate · in $timeRemainingStr"
         } else {
-            // Timer mode: Displays what time the timer completes
-            String.format(Locale.getDefault(), "Timer ends at %02d:%02d", (12 + hour) % 24, minute)
+            val timerEndCal = Calendar.getInstance().apply {
+                add(Calendar.HOUR_OF_DAY, hour)
+                add(Calendar.MINUTE, minute)
+            }
+            val endHour = timerEndCal.get(Calendar.HOUR_OF_DAY)
+            val endMin = timerEndCal.get(Calendar.MINUTE)
+
+            String.format(Locale.getDefault(), "Timer ends at %02d:%02d", endHour, endMin)
         }
 
         Text(
