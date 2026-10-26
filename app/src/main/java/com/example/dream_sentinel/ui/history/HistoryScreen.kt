@@ -29,10 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,53 +56,35 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(
-    modifier: Modifier = Modifier,
-    onTabSelected: (NavTab) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    state: HistoryUiState,
+    onEvent: (HistoryUiEvent) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    // Current actual date on phone using java.util.Calendar
     val todayCalendar = remember { Calendar.getInstance() }
     val todayYear = todayCalendar.get(Calendar.YEAR)
-    val todayMonth = todayCalendar.get(Calendar.MONTH) // 0..11
-    val todayDay = todayCalendar.get(Calendar.DAY_OF_MONTH) // 1..31
-
-    var selectedYear by remember { mutableIntStateOf(todayYear) }
-    var selectedMonth by remember { mutableIntStateOf(todayMonth) } // 0..11
-    var selectedDay by remember { mutableIntStateOf(todayDay) } // 1..31
+    val todayMonth = todayCalendar.get(Calendar.MONTH)
+    val todayDay = todayCalendar.get(Calendar.DAY_OF_MONTH)
 
     var isMonthDropdownExpanded by remember { mutableStateOf(false) }
     var isYearDropdownExpanded by remember { mutableStateOf(false) }
 
-    val monthNamesShort = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    val monthNamesFull = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-
-    // Key format: "YEAR-MONTH-DAY"
-    val selectedDateKey = "$selectedYear-$selectedMonth-$selectedDay"
-
-    // Mock saved dreams map
-    val savedDreams = remember {
-        mutableStateMapOf(
-            "$todayYear-$todayMonth-${todayDay - 3}" to "I was flying over a city made of glowing purple lights.",
-            "$todayYear-$todayMonth-${todayDay - 2}" to "Walked through an endless quiet forest with rain sounds.",
-            "$todayYear-$todayMonth-${todayDay - 1}" to "Discovered a hidden lighthouse on an ocean shore."
-        )
-    }
-
-    var dreamInputText by remember { mutableStateOf(savedDreams[selectedDateKey] ?: "") }
-
-    LaunchedEffect(selectedDateKey) {
-        dreamInputText = savedDreams[selectedDateKey] ?: ""
-    }
+    val monthNamesShort = listOf(
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    )
+    val monthNamesFull = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    )
 
     MainScreenScaffold(
         title = "How was your sleep?",
         subtitle = "Remind yourself about previous dreams.",
         selectedTab = NavTab.HISTORY,
-        onTabSelected = onTabSelected,
-        onSettingsClick = onSettingsClick,
+        onTabSelected = { onEvent(HistoryUiEvent.TabSelected(it)) },
+        onSettingsClick = { onEvent(HistoryUiEvent.SettingsClicked) },
         modifier = modifier
     ) {
-        // Main Calendar Container Card
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
@@ -117,7 +96,6 @@ fun HistoryScreen(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // Month/Year Navigation Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -126,14 +104,7 @@ fun HistoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = {
-                            if (selectedMonth == 0) {
-                                selectedMonth = 11
-                                selectedYear--
-                            } else {
-                                selectedMonth--
-                            }
-                        },
+                        onClick = { onEvent(HistoryUiEvent.PreviousMonthClicked) },
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
@@ -148,7 +119,6 @@ fun HistoryScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Month Selector Pill + Dropdown
                         Box {
                             Box(
                                 modifier = Modifier
@@ -159,7 +129,7 @@ fun HistoryScreen(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = monthNamesShort[selectedMonth],
+                                        text = monthNamesShort[state.selectedMonth],
                                         color = MainColorWhite,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium
@@ -180,15 +150,24 @@ fun HistoryScreen(
                                 modifier = Modifier.background(Color(0xFF1E2135))
                             ) {
                                 monthNamesFull.forEachIndexed { index, name ->
+                                    val monthEnabled = !HistoryUiState.isFutureMonth(
+                                        state.selectedYear,
+                                        index
+                                    )
                                     DropdownMenuItem(
                                         text = {
                                             Text(
                                                 text = name,
-                                                color = MainColorWhite
+                                                color = if (monthEnabled) {
+                                                    MainColorWhite
+                                                } else {
+                                                    SideColorWhite.copy(alpha = 0.35f)
+                                                }
                                             )
                                         },
+                                        enabled = monthEnabled,
                                         onClick = {
-                                            selectedMonth = index
+                                            onEvent(HistoryUiEvent.MonthChanged(index))
                                             isMonthDropdownExpanded = false
                                         }
                                     )
@@ -196,7 +175,6 @@ fun HistoryScreen(
                             }
                         }
 
-                        // Year Selector Pill + Dropdown
                         Box {
                             Box(
                                 modifier = Modifier
@@ -207,7 +185,7 @@ fun HistoryScreen(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "$selectedYear",
+                                        text = "${state.selectedYear}",
                                         color = MainColorWhite,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium
@@ -228,8 +206,7 @@ fun HistoryScreen(
                                 modifier = Modifier.background(Color(0xFF1E2135))
                             ) {
                                 val startYear = todayYear - 5
-                                val endYear = todayYear + 5
-                                (startYear..endYear).forEach { year ->
+                                (startYear..todayYear).forEach { year ->
                                     DropdownMenuItem(
                                         text = {
                                             Text(
@@ -238,7 +215,7 @@ fun HistoryScreen(
                                             )
                                         },
                                         onClick = {
-                                            selectedYear = year
+                                            onEvent(HistoryUiEvent.YearChanged(year))
                                             isYearDropdownExpanded = false
                                         }
                                     )
@@ -247,29 +224,26 @@ fun HistoryScreen(
                         }
                     }
 
+                    val canGoNextMonth = !HistoryUiState.isFutureMonth(
+                        year = if (state.selectedMonth == 11) state.selectedYear + 1 else state.selectedYear,
+                        month = if (state.selectedMonth == 11) 0 else state.selectedMonth + 1
+                    )
                     IconButton(
-                        onClick = {
-                            if (selectedMonth == 11) {
-                                selectedMonth = 0
-                                selectedYear++
-                            } else {
-                                selectedMonth++
-                            }
-                        },
+                        onClick = { onEvent(HistoryUiEvent.NextMonthClicked) },
+                        enabled = canGoNextMonth,
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_chevron_right),
                             contentDescription = "Next Month",
-                            tint = SideColorWhite,
+                            tint = if (canGoNextMonth) SideColorWhite else SideColorWhite.copy(alpha = 0.25f),
                             modifier = Modifier.size(14.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Days of Week Header (Su Mo Tu We Th Fr Sa)
                 val daysOfWeek = listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -285,19 +259,18 @@ fun HistoryScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Calendar Grid Calculation for selectedYear & selectedMonth
-                val monthCalendar = remember(selectedYear, selectedMonth) {
+                val monthCalendar = remember(state.selectedYear, state.selectedMonth) {
                     Calendar.getInstance().apply {
-                        set(Calendar.YEAR, selectedYear)
-                        set(Calendar.MONTH, selectedMonth)
+                        set(Calendar.YEAR, state.selectedYear)
+                        set(Calendar.MONTH, state.selectedMonth)
                         set(Calendar.DAY_OF_MONTH, 1)
                     }
                 }
 
                 val daysInMonth = monthCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-                val firstDayOfWeek = monthCalendar.get(Calendar.DAY_OF_WEEK) - 1 // 0 for Sunday
+                val firstDayOfWeek = monthCalendar.get(Calendar.DAY_OF_WEEK) - 1
 
                 val totalCells = firstDayOfWeek + daysInMonth
                 val numRows = (totalCells + 6) / 7
@@ -321,27 +294,38 @@ fun HistoryScreen(
                             if (dayNumber == null) {
                                 Box(modifier = Modifier.size(36.dp))
                             } else {
-                                val cellKey = "$selectedYear-$selectedMonth-$dayNumber"
-                                val isSelected = dayNumber == selectedDay
-                                val isToday = (selectedYear == todayYear && selectedMonth == todayMonth && dayNumber == todayDay)
-                                val hasSavedDream = savedDreams.containsKey(cellKey)
+                                val cellKey = HistoryUiState.dateKey(
+                                    state.selectedYear,
+                                    state.selectedMonth,
+                                    dayNumber
+                                )
+                                val isSelected = dayNumber == state.selectedDay
+                                val isToday = state.selectedYear == todayYear &&
+                                    state.selectedMonth == todayMonth &&
+                                    dayNumber == todayDay
+                                val isFuture = HistoryUiState.isFutureDate(
+                                    state.selectedYear,
+                                    state.selectedMonth,
+                                    dayNumber
+                                )
+                                val hasSavedDream = state.dreamsByDateKey.containsKey(cellKey)
 
-                                // Background & Border Styling
                                 val cellBgColor = when {
-                                    isToday -> Color(0xFFD4CFFC) // Today is solid pink/lavender
-                                    hasSavedDream -> Color(0xFF383556) // Purple filled for saved dream
+                                    isFuture -> Color.Transparent
+                                    isToday -> Color(0xFFD4CFFC)
+                                    hasSavedDream -> Color(0xFF383556)
                                     else -> Color.Transparent
                                 }
 
                                 val cellTextColor = when {
+                                    isFuture -> SideColorWhite.copy(alpha = 0.28f)
                                     isToday -> BlackColor
                                     hasSavedDream -> MainColorWhite
                                     isSelected -> MainColorWhite
                                     else -> SideColorWhite
                                 }
 
-                                // Pink stroke around any selected date
-                                val borderModifier = if (isSelected) {
+                                val borderModifier = if (isSelected && !isFuture) {
                                     Modifier.border(1.5.dp, MainColor, RoundedCornerShape(10.dp))
                                 } else {
                                     Modifier
@@ -353,11 +337,19 @@ fun HistoryScreen(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(cellBgColor)
                                         .then(borderModifier)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = {
-                                                selectedDay = dayNumber
+                                        .then(
+                                            if (isFuture) {
+                                                Modifier
+                                            } else {
+                                                Modifier.clickable(
+                                                    interactionSource = remember {
+                                                        MutableInteractionSource()
+                                                    },
+                                                    indication = null,
+                                                    onClick = {
+                                                        onEvent(HistoryUiEvent.DaySelected(dayNumber))
+                                                    }
+                                                )
                                             }
                                         ),
                                     contentAlignment = Alignment.Center
@@ -366,7 +358,13 @@ fun HistoryScreen(
                                         text = "$dayNumber",
                                         color = cellTextColor,
                                         fontSize = 14.sp,
-                                        fontWeight = if (isSelected || isToday || hasSavedDream) FontWeight.SemiBold else FontWeight.Normal
+                                        fontWeight = if (
+                                            !isFuture && (isSelected || isToday || hasSavedDream)
+                                        ) {
+                                            FontWeight.SemiBold
+                                        } else {
+                                            FontWeight.Normal
+                                        }
                                     )
                                 }
                             }
@@ -376,7 +374,6 @@ fun HistoryScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Inner Dream Section Card
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
@@ -388,8 +385,13 @@ fun HistoryScreen(
                     Column(
                         modifier = Modifier.padding(14.dp)
                     ) {
-                        // Dream Card Header
-                        val formattedSelectedDate = String.format(Locale.getDefault(), "%02d.%02d.%04d", selectedDay, selectedMonth + 1, selectedYear)
+                        val formattedSelectedDate = String.format(
+                            Locale.getDefault(),
+                            "%02d.%02d.%04d",
+                            state.selectedDay,
+                            state.selectedMonth + 1,
+                            state.selectedYear
+                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -412,7 +414,6 @@ fun HistoryScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Text Field Box for Dream Input
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -432,9 +433,15 @@ fun HistoryScreen(
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
+                                val canEditDream = !state.isSelectedDateInFuture
                                 BasicTextField(
-                                    value = dreamInputText,
-                                    onValueChange = { dreamInputText = it },
+                                    value = state.draftText,
+                                    onValueChange = {
+                                        if (canEditDream) {
+                                            onEvent(HistoryUiEvent.DraftChanged(it))
+                                        }
+                                    },
+                                    enabled = canEditDream,
                                     textStyle = androidx.compose.ui.text.TextStyle(
                                         color = MainColorWhite,
                                         fontSize = 13.sp,
@@ -443,11 +450,15 @@ fun HistoryScreen(
                                     cursorBrush = SolidColor(MainColor),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(70.dp),
+                                        .height(45.dp),
                                     decorationBox = { innerTextField ->
-                                        if (dreamInputText.isEmpty()) {
+                                        if (state.draftText.isEmpty()) {
                                             Text(
-                                                text = "You don't have any dream for this day, if you recall it, feel free to write it",
+                                                text = if (canEditDream) {
+                                                    "You don't have any dream for this day, if you recall it, feel free to write it"
+                                                } else {
+                                                    "Future days are locked"
+                                                },
                                                 color = SideColorWhite.copy(alpha = 0.6f),
                                                 fontSize = 13.sp,
                                                 lineHeight = 18.sp
@@ -459,17 +470,16 @@ fun HistoryScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        // Discard & Save Action Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            val canEditDream = !state.isSelectedDateInFuture
                             OutlinedButton(
-                                onClick = {
-                                    dreamInputText = savedDreams[selectedDateKey] ?: ""
-                                },
+                                onClick = { onEvent(HistoryUiEvent.DeleteClicked) },
+                                enabled = canEditDream,
                                 shape = CircleShape,
                                 border = BorderStroke(1.dp, Color(0xFF383556)),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -480,20 +490,15 @@ fun HistoryScreen(
                                     .height(42.dp)
                             ) {
                                 Text(
-                                    text = "Discard",
+                                    text = "Delete",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
 
                             Button(
-                                onClick = {
-                                    if (dreamInputText.isNotBlank()) {
-                                        savedDreams[selectedDateKey] = dreamInputText
-                                    } else {
-                                        savedDreams.remove(selectedDateKey)
-                                    }
-                                },
+                                onClick = { onEvent(HistoryUiEvent.SaveClicked) },
+                                enabled = canEditDream,
                                 shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MainColor,
@@ -521,6 +526,9 @@ fun HistoryScreen(
 @Composable
 private fun HistoryScreenPreview() {
     DreamSentinelTheme {
-        HistoryScreen()
+        HistoryScreen(
+            state = HistoryUiState(),
+            onEvent = {}
+        )
     }
 }

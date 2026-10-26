@@ -54,7 +54,11 @@ fun SleepScreen(
             hours = state.selectedHours,
             maxAlarmHours = state.maxAlarmHours,
             percentage = state.percentage,
-            onHoursChanged = { onEvent(SleepUiEvent.HoursChanged(it)) },
+            onHoursChanged = {
+                if (!state.isNightActive && state.isConfigured) {
+                    onEvent(SleepUiEvent.HoursChanged(it))
+                }
+            },
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
@@ -150,12 +154,20 @@ fun SleepScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        val nightActive = state.isNightActive
         Button(
-            onClick = { onEvent(SleepUiEvent.StartNightClicked) },
+            onClick = {
+                if (nightActive) {
+                    onEvent(SleepUiEvent.CancelNightClicked)
+                } else {
+                    onEvent(SleepUiEvent.StartNightClicked)
+                }
+            },
+            enabled = nightActive || state.isConfigured,
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MainColor,
-                contentColor = BlackColor
+                containerColor = if (nightActive) Color(0xFF2A3148) else MainColor,
+                contentColor = if (nightActive) MainColorWhite else BlackColor
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -166,17 +178,19 @@ fun SleepScreen(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_play),
+                    painter = painterResource(
+                        id = if (nightActive) R.drawable.ic_alarm_off else R.drawable.ic_play
+                    ),
                     contentDescription = null,
-                    tint = BlackColor,
+                    tint = if (nightActive) MainColorWhite else BlackColor,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = if (state.isNightActive) "Night in progress" else "Start my night",
+                    text = if (nightActive) "Cancel night" else "Start my night",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = BlackColor
+                    color = if (nightActive) MainColorWhite else BlackColor
                 )
             }
         }
@@ -184,7 +198,7 @@ fun SleepScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = state.summaryText,
+            text = state.statusMessage ?: state.summaryText,
             color = SideColorWhite,
             fontSize = 12.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally)

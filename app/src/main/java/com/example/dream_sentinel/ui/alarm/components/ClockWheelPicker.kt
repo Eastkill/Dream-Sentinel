@@ -51,7 +51,6 @@ fun ClockWheelPicker(
             .height(150.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Highlight background for the center selected row
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
@@ -65,7 +64,6 @@ fun ClockWheelPicker(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            // Hours Wheel Column (0..23)
             WheelColumn(
                 count = 24,
                 selectedIndex = hour,
@@ -73,7 +71,6 @@ fun ClockWheelPicker(
                 modifier = Modifier.width(90.dp)
             )
 
-            // Colon Divider
             Text(
                 text = ":",
                 color = SideColorWhite.copy(alpha = 0.5f),
@@ -82,7 +79,6 @@ fun ClockWheelPicker(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            // Minutes Wheel Column (0..59)
             WheelColumn(
                 count = 60,
                 selectedIndex = minute,
@@ -105,16 +101,17 @@ private fun WheelColumn(
     val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
     val halfItemPx = itemHeightPx / 2f
 
-    // Place selectedIndex at index (initialIndex + 1) which is in the center
-    val initialIndex = remember {
+    fun indexForValue(value: Int): Int {
         val base = (totalItems / 2) - ((totalItems / 2) % count)
-        (base + selectedIndex - 1)
+        return base + value - 1
     }
 
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = indexForValue(selectedIndex)
+    )
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-    val currentCenterIndex = remember {
+    val currentCenterIndex by remember {
         derivedStateOf {
             if (listState.firstVisibleItemScrollOffset > halfItemPx) {
                 listState.firstVisibleItemIndex + 2
@@ -124,22 +121,33 @@ private fun WheelColumn(
         }
     }
 
-    val currentCenterValue = remember {
+    val currentCenterValue by remember {
         derivedStateOf {
-            ((currentCenterIndex.value % count) + count) % count
+            ((currentCenterIndex % count) + count) % count
         }
     }
 
-    // Smoothly snap to center item when scroll stops
+    // Keep wheel aligned when parent restores a different value (e.g. from DataStore).
+    LaunchedEffect(selectedIndex) {
+        if (currentCenterValue != selectedIndex && !listState.isScrollInProgress) {
+            listState.scrollToItem(indexForValue(selectedIndex), 0)
+        }
+    }
+
+    // Notify parent only when the user actually changed the value.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .collect { isScrolling ->
+        snapshotFlow { listState.isScrollInProgress to currentCenterValue }
+            .collect { (isScrolling, centerValue) ->
                 if (!isScrolling) {
-                    val targetFirstVisible = currentCenterIndex.value - 1
-                    if (listState.firstVisibleItemIndex != targetFirstVisible || listState.firstVisibleItemScrollOffset != 0) {
+                    val targetFirstVisible = currentCenterIndex - 1
+                    if (listState.firstVisibleItemIndex != targetFirstVisible ||
+                        listState.firstVisibleItemScrollOffset != 0
+                    ) {
                         listState.animateScrollToItem(targetFirstVisible, 0)
                     }
-                    onIndexSelected(currentCenterValue.value)
+                    if (centerValue != selectedIndex) {
+                        onIndexSelected(centerValue)
+                    }
                 }
             }
     }
@@ -152,7 +160,7 @@ private fun WheelColumn(
     ) {
         items(totalItems) { index ->
             val value = index % count
-            val isSelected = index == currentCenterIndex.value
+            val isSelected = index == currentCenterIndex
 
             Box(
                 modifier = Modifier

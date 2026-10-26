@@ -1,4 +1,3 @@
-// Ścieżka: app/src/main/java/com/example/dream_sentinel/system/alarm/AndroidAlarmScheduler.kt
 package com.example.dream_sentinel.system.alarm
 
 import android.app.AlarmManager
@@ -7,26 +6,36 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.example.dream_sentinel.MainActivity
+import com.example.dream_sentinel.domain.scheduler.AlarmConfig
 import com.example.dream_sentinel.domain.scheduler.AlarmScheduler
+import com.example.dream_sentinel.domain.scheduler.ScheduleAlarmResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 class AndroidAlarmScheduler @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : AlarmScheduler {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    override fun schedule(triggerAtMillis: Long, title: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                // Brak uprawnień do dokładnych alarmów
-                return
-            }
+    override fun canScheduleExactAlarms(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+    }
+
+    override fun schedule(config: AlarmConfig): ScheduleAlarmResult {
+        if (!canScheduleExactAlarms()) {
+            return ScheduleAlarmResult.ExactAlarmPermissionRequired
         }
 
         val intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra("ALARM_TITLE", title)
+            putExtra(AlarmActions.EXTRA_ALARM_TITLE, config.title)
+            putExtra(AlarmActions.EXTRA_EASE_ME_AWAKE, config.easeMeAwake)
+            putExtra(AlarmActions.EXTRA_EASE_DURATION_MINUTES, config.easeDurationMinutes)
+            putExtra(AlarmActions.EXTRA_SOUND_ID, config.soundId)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -45,9 +54,10 @@ class AndroidAlarmScheduler @Inject constructor(
         )
 
         alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent),
+            AlarmManager.AlarmClockInfo(config.triggerAtMillis, showPendingIntent),
             pendingIntent
         )
+        return ScheduleAlarmResult.Scheduled
     }
 
     override fun cancel() {

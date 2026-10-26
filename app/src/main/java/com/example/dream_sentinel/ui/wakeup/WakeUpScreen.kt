@@ -63,9 +63,7 @@ fun WakeUpScreen(
     onDisableAlarmClick: () -> Unit = {},
     onSaveDreamClick: (String) -> Unit = {}
 ) {
-    var dreamText by remember {
-        mutableStateOf("I was floating over a quiet sea, and the sky was full of moons...")
-    }
+    var dreamText by remember { mutableStateOf("") }
 
     val now = remember { Calendar.getInstance() }
     val dateFormatter = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())

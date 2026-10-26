@@ -47,17 +47,17 @@ fun SleepTimerGauge(
     Box(
         modifier = modifier
             .size(size)
-            .pointerInput(Unit) {
+            .pointerInput(maxAlarmHours) {
                 detectDragGestures { change, _ ->
                     val center = Offset(size.toPx() / 2f, size.toPx() / 2f)
                     val touchPos = change.position
-                    // Fixed syntax error from original snippet:
                     val angleRad = atan2(touchPos.y - center.y, touchPos.x - center.x)
                     var angleDeg = Math.toDegrees(angleRad.toDouble()).toFloat() + 90f
                     if (angleDeg < 0) angleDeg += 360f
 
                     val newProgress = (angleDeg / 360f).coerceIn(0.125f, 1f)
-                    val newHours = (newProgress * maxAlarmHours).coerceIn(1f, maxAlarmHours)
+                    val safeMax = maxAlarmHours.coerceAtLeast(0.25f)
+                    val newHours = (newProgress * safeMax).coerceIn(0.25f, safeMax)
                     onHoursChanged(newHours)
                 }
             },

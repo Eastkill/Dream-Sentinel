@@ -2,6 +2,7 @@ package com.example.dream_sentinel.ui.alarm
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,17 +16,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,54 +54,66 @@ enum class AlarmMode {
 
 @Composable
 fun AlarmScreen(
-    modifier: Modifier = Modifier,
-    onTabSelected: (NavTab) -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onSaveAlarmClick: (alarmTitle: String) -> Unit = {}
+    state: AlarmUiState,
+    onEvent: (AlarmUiEvent) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var mode by remember { mutableStateOf(AlarmMode.AT_A_TIME) }
-    var hour by remember { mutableIntStateOf(8) }
-    var minute by remember { mutableIntStateOf(0) }
-    var easeMeAwake by remember { mutableStateOf(true) }
-    var repeatOption by remember { mutableStateOf("Just today") }
-    var soundOption by remember { mutableStateOf("First light") }
+    val formEnabled = !state.isScheduled
 
     MainScreenScaffold(
         title = "Schedule your sleep",
         subtitle = "Choose when your next day begins.",
         selectedTab = NavTab.ALARM,
-        onTabSelected = onTabSelected,
-        onSettingsClick = onSettingsClick,
+        onTabSelected = { onEvent(AlarmUiEvent.TabSelected(it)) },
+        onSettingsClick = { onEvent(AlarmUiEvent.SettingsClicked) },
         modifier = modifier
     ) {
-        // Mode Switcher (At a time / Timer)
         AlarmModeSelector(
-            selectedMode = mode,
-            onModeSelected = { mode = it }
+            selectedMode = state.mode,
+            onModeSelected = {
+                if (formEnabled) onEvent(AlarmUiEvent.ModeChanged(it))
+            }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Draggable / Spinning Time Picker Wheel
-        ClockWheelPicker(
-            hour = hour,
-            minute = minute,
-            onHourChange = { hour = it },
-            onMinuteChange = { minute = it }
-        )
+        // Mount wheel only after DataStore restore so it doesn't start at 8:00 and overwrite prefs.
+        if (state.isRestored) {
+            ClockWheelPicker(
+                hour = state.hour,
+                minute = state.minute,
+                onHourChange = {
+                    if (formEnabled) onEvent(AlarmUiEvent.HourChanged(it))
+                },
+                onMinuteChange = {
+                    if (formEnabled) onEvent(AlarmUiEvent.MinuteChanged(it))
+                }
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = MainColor,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Calculated Time Info Line (Real Phone Time Calculation)
         CalculatedTimeInfo(
-            mode = mode,
-            hour = hour,
-            minute = minute
+            mode = state.mode,
+            hour = state.hour,
+            minute = state.minute
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Options Card
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
@@ -114,11 +124,10 @@ fun AlarmScreen(
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // Repeat Option
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { }
+                        .clickable(enabled = formEnabled) { }
                         .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -131,7 +140,7 @@ fun AlarmScreen(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = repeatOption,
+                            text = state.repeatOption,
                             color = SideColorWhite,
                             fontSize = 14.sp
                         )
@@ -142,11 +151,10 @@ fun AlarmScreen(
 
                 HorizontalDivider(color = Color(0xFF222638), thickness = 1.dp)
 
-                // Wake-up Sound Option
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { }
+                        .clickable(enabled = formEnabled) { }
                         .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -159,7 +167,7 @@ fun AlarmScreen(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = soundOption,
+                            text = state.soundOption,
                             color = SideColorWhite,
                             fontSize = 14.sp
                         )
@@ -170,7 +178,6 @@ fun AlarmScreen(
 
                 HorizontalDivider(color = Color(0xFF222638), thickness = 1.dp)
 
-                // Ease me awake Switch
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -194,8 +201,11 @@ fun AlarmScreen(
                     }
 
                     Switch(
-                        checked = easeMeAwake,
-                        onCheckedChange = { easeMeAwake = it },
+                        checked = state.easeMeAwake,
+                        onCheckedChange = {
+                            onEvent(AlarmUiEvent.EaseMeAwakeChanged(it))
+                        },
+                        enabled = formEnabled,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = MainColor,
@@ -209,41 +219,54 @@ fun AlarmScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Save Button CTA
-        val ctaText = if (mode == AlarmMode.AT_A_TIME) "Save alarm" else "Save timer"
+        val showCancel = state.isConfigured || state.isScheduled
+        val ctaText = when {
+            showCancel -> "Cancel"
+            state.mode == AlarmMode.AT_A_TIME -> "Save alarm"
+            else -> "Save timer"
+        }
 
         Button(
             onClick = {
-                val formattedTitle = if (mode == AlarmMode.AT_A_TIME) {
-                    String.format(Locale.getDefault(), "%02d:%02d alarm · %s", hour, minute, soundOption)
+                if (showCancel) {
+                    onEvent(AlarmUiEvent.CancelAlarmClicked)
                 } else {
-                    String.format(Locale.getDefault(), "%dh %dm timer · %s", hour, minute, soundOption)
+                    onEvent(AlarmUiEvent.SaveAlarmClicked)
                 }
-                onSaveAlarmClick(formattedTitle)
             },
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MainColor,
-                contentColor = BlackColor
+                containerColor = if (showCancel) Color(0xFF2A3148) else MainColor,
+                contentColor = if (showCancel) MainColorWhite else BlackColor
             ),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = ctaText,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = BlackColor
-                )
-            }
+            Text(
+                text = ctaText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (showCancel) MainColorWhite else BlackColor
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        val statusText = when {
+            state.isScheduled ->
+                "Night is active — cancel from Sleep or here."
+            state.isConfigured ->
+                state.savedTitle?.let { "Saved: $it · start night from Sleep" }
+                    ?: "Timer saved · start night from Sleep"
+            state.saveFailed ->
+                "Could not save timer."
+            else ->
+                "Choose a time, then tap save."
+        }
+
         Text(
-            text = "Your alarm is on. Rest easy.",
+            text = statusText,
             color = SideColorWhite,
             fontSize = 12.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -325,6 +348,9 @@ private fun CalculatedTimeInfo(
 @Composable
 private fun AlarmScreenPreview() {
     DreamSentinelTheme {
-        AlarmScreen()
+        AlarmScreen(
+            state = AlarmUiState(isRestored = true),
+            onEvent = {}
+        )
     }
 }
