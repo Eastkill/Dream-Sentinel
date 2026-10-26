@@ -24,4 +24,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "Dream-Sentinel"
 include(":app")
- 

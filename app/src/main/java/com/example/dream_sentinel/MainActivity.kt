@@ -1,121 +1,87 @@
 package com.example.dream_sentinel
 
+import android.app.KeyguardManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.dream_sentinel.ui.alarm.AlarmScreen
-import com.example.dream_sentinel.ui.components.MainScreenScaffold
-import com.example.dream_sentinel.ui.components.NavTab
-import com.example.dream_sentinel.ui.settings.SettingsRoute
 import com.example.dream_sentinel.ui.theme.DreamSentinelTheme
-import com.example.dream_sentinel.ui.theme.MainColorWhite
+import dagger.hilt.android.AndroidEntryPoint
 
-import androidx.activity.SystemBarStyle
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // Stan informujący Compose, czy pokazać ekran budzenia
+    private var showWakeUpScreen by mutableStateOf(false)
+    private var alarmTitle by mutableStateOf("Alarm")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(
-                android.graphics.Color.TRANSPARENT
-            )
-        )
+
+        handleAlarmIntent(intent)
+
         setContent {
             DreamSentinelTheme {
-                DreamSentinelApp()
+                if (showWakeUpScreen) {
+                    // Twój ekran z paczki ui/wakeup
+                    WakeUpScreen(
+                        title = alarmTitle,
+                        onDismiss = {
+                            dismissAlarm()
+                        }
+                    )
+                } else {
+                    DreamSentinelApp()
+                }
             }
         }
     }
-}
 
-enum class AppScreen {
-    MUSIC,
-    ALARM,
-    SLEEP,
-    HISTORY,
-    SETTINGS
-}
-
-@Composable
-fun DreamSentinelApp() {
-    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.ALARM) }
-    var previousTab by rememberSaveable {mutableStateOf<AppScreen?>(null) }
-    val openSettings: () -> Unit = {
-        previousTab = currentScreen
-        currentScreen = AppScreen.SETTINGS
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAlarmIntent(intent)
     }
-    when (currentScreen) {
-        AppScreen.ALARM -> {
-            AlarmScreen(
-                onTabSelected = { tab ->
-                    currentScreen = when (tab) {
-                        NavTab.MUSIC -> AppScreen.MUSIC
-                        NavTab.ALARM -> AppScreen.ALARM
-                        NavTab.SLEEP -> AppScreen.SLEEP
-                        NavTab.HISTORY -> AppScreen.HISTORY
-                    }
-                },
-                onSettingsClick = openSettings
+
+    private fun handleAlarmIntent(intent: Intent?) {
+        val shouldShow = intent?.getBooleanExtra("SHOW_WAKEUP_SCREEN", false) ?: false
+        if (shouldShow) {
+            turnScreenOnAndShowOverLockscreen()
+            alarmTitle = intent?.getStringExtra("ALARM_TITLE") ?: "Alarm"
+            showWakeUpScreen = true
+        }
+    }
+
+    private fun turnScreenOnAndShowOverLockscreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
-        AppScreen.SETTINGS -> {
-            SettingsRoute(
-                onBackClick = {
-                    currentScreen = previousTab ?: AppScreen.ALARM
-                    previousTab = null
-                }
-            )
-        }
-        AppScreen.MUSIC -> {
-            com.example.dream_sentinel.ui.music.MusicScreen(
-                onTabSelected = { tab ->
-                    currentScreen = when (tab) {
-                        NavTab.MUSIC -> AppScreen.MUSIC
-                        NavTab.ALARM -> AppScreen.ALARM
-                        NavTab.SLEEP -> AppScreen.SLEEP
-                        NavTab.HISTORY -> AppScreen.HISTORY
-                    }
-                },
-                onSettingsClick = openSettings
-            )
-        }
-        AppScreen.SLEEP -> {
-            com.example.dream_sentinel.ui.sleep.SleepScreen(
-                onTabSelected = { tab ->
-                    currentScreen = when (tab) {
-                        NavTab.MUSIC -> AppScreen.MUSIC
-                        NavTab.ALARM -> AppScreen.ALARM
-                        NavTab.SLEEP -> AppScreen.SLEEP
-                        NavTab.HISTORY -> AppScreen.HISTORY
-                    }
-                },
-                onSettingsClick = openSettings
-            )
-        }
-        AppScreen.HISTORY -> {
-            com.example.dream_sentinel.ui.history.HistoryScreen(
-                onTabSelected = { tab ->
-                    currentScreen = when (tab) {
-                        NavTab.MUSIC -> AppScreen.MUSIC
-                        NavTab.ALARM -> AppScreen.ALARM
-                        NavTab.SLEEP -> AppScreen.SLEEP
-                        NavTab.HISTORY -> AppScreen.HISTORY
-                    }
-                },
-                onSettingsClick = openSettings
-            )
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun dismissAlarm() {
+        showWakeUpScreen = false
+        // Usunięcie flagi, aby ekran mógł gasnąć normalnie
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
         }
     }
 }
