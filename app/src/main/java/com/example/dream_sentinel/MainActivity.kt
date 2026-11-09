@@ -14,11 +14,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.dream_sentinel.domain.music.MusicSource
 import com.example.dream_sentinel.system.alarm.AlarmActions
 import com.example.dream_sentinel.ui.alarm.AlarmRoute
 import com.example.dream_sentinel.ui.components.NavTab
 import com.example.dream_sentinel.ui.history.HistoryRoute
 import com.example.dream_sentinel.ui.music.MusicScreen
+import com.example.dream_sentinel.ui.music.MusicSourceViewModel
+import com.example.dream_sentinel.ui.radio.RadioUiEvent
+import com.example.dream_sentinel.ui.radio.RadioViewModel
 import com.example.dream_sentinel.ui.settings.SettingsRoute
 import com.example.dream_sentinel.ui.sleep.SleepRoute
 import com.example.dream_sentinel.ui.theme.DreamSentinelTheme
@@ -35,9 +40,25 @@ enum class AppScreen {
 }
 
 @Composable
-fun DreamSentinelApp() {
+fun DreamSentinelApp(
+    radioViewModel: RadioViewModel,
+    musicSourceViewModel: MusicSourceViewModel,
+) {
     var currentScreen by rememberSaveable { mutableStateOf(AppScreen.MUSIC) }
     var previousTab by rememberSaveable { mutableStateOf<AppScreen?>(null) }
+
+    val radioState by radioViewModel.uiState.collectAsStateWithLifecycle()
+    val musicSource by musicSourceViewModel.selectedSource.collectAsStateWithLifecycle()
+
+    val selectMusicSource: (MusicSource) -> Unit = { source ->
+        // Radio nie może grać pod atrapą Spotify — pauzujemy przy zmianie źródła.
+        if (source != MusicSource.RADIO &&
+            (radioState.isPlaying || radioState.isBuffering)
+        ) {
+            radioViewModel.onEvent(RadioUiEvent.TogglePlayPauseClicked)
+        }
+        musicSourceViewModel.selectSource(source)
+    }
 
     val openSettings: () -> Unit = {
         previousTab = currentScreen
@@ -68,6 +89,9 @@ fun DreamSentinelApp() {
         }
         AppScreen.MUSIC -> {
             MusicScreen(
+                radioState = radioState,
+                onRadioEvent = radioViewModel::onEvent,
+                musicSource = musicSource,
                 onTabSelected = onTabSelected,
                 onSettingsClick = openSettings
             )
@@ -80,6 +104,12 @@ fun DreamSentinelApp() {
         }
         AppScreen.SETTINGS -> {
             SettingsRoute(
+                onMusicSourceSelected = selectMusicSource,
+                radioStations = radioState.stations,
+                currentStationId = radioState.currentStationId,
+                onStationSelect = { stationId ->
+                    radioViewModel.onEvent(RadioUiEvent.StationSelected(stationId))
+                },
                 onBackClick = {
                     currentScreen = previousTab ?: AppScreen.ALARM
                     previousTab = null
@@ -93,6 +123,8 @@ fun DreamSentinelApp() {
 class MainActivity : ComponentActivity() {
 
     private val wakeUpViewModel: WakeUpViewModel by viewModels()
+    private val radioViewModel: RadioViewModel by viewModels()
+    private val musicSourceViewModel: MusicSourceViewModel by viewModels()
 
     private var showWakeUpScreen by mutableStateOf(false)
     private var alarmTitle by mutableStateOf("Alarm")
@@ -122,7 +154,10 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    DreamSentinelApp()
+                    DreamSentinelApp(
+                        radioViewModel = radioViewModel,
+                        musicSourceViewModel = musicSourceViewModel,
+                    )
                 }
             }
         }
