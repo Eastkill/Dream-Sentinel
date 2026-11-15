@@ -20,6 +20,8 @@ interface RadioPlayer {
 
     fun pause()
 
+    suspend fun pauseForSourceSwitch(): Boolean
+
     fun resume()
 
     fun toggle()

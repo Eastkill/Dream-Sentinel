@@ -7,6 +7,8 @@ import com.example.dream_sentinel.domain.radio.AddStationResult
 import com.example.dream_sentinel.domain.radio.RadioRepository
 import com.example.dream_sentinel.playback.RadioPlaybackState
 import com.example.dream_sentinel.playback.RadioPlayer
+import com.example.dream_sentinel.playback.MusicPlaybackCoordinator
+import com.example.dream_sentinel.spotify.FakeSpotifyController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +53,8 @@ class RadioViewModelTest {
         repository = FakeRadioRepository(stations)
         player = FakeRadioPlayer()
         musicPreferences = FakeMusicPreferencesRepository()
-        viewModel = RadioViewModel(repository, player, musicPreferences)
+        val coordinator = MusicPlaybackCoordinator(musicPreferences, player, FakeSpotifyController())
+        viewModel = RadioViewModel(repository, player, musicPreferences, coordinator)
     }
 
     @Test
@@ -365,6 +368,11 @@ private class FakeRadioPlayer : RadioPlayer {
 
     override fun pause() {
         _state.update { it.copy(isPlaying = false) }
+    }
+
+    override suspend fun pauseForSourceSwitch(): Boolean {
+        pause()
+        return true
     }
 
     override fun resume() {

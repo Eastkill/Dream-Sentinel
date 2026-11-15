@@ -17,7 +17,7 @@ interface SettingsRepository {
 class SettingsRepositoryImpl : SettingsRepository {
     private val providersFlow = MutableStateFlow(
         listOf(
-            StreamingProvider(id = "spotify", name = "Spotify Connection", iconColor = SpotifyColor, isConnected = true),
+            StreamingProvider(id = "spotify", name = "Spotify Connection", iconColor = SpotifyColor, isConnected = false),
             StreamingProvider(id = "radio", name = "Radio", iconColor = RadioColor, isConnected = false),
             StreamingProvider(id = "soundcloud", name = "SoundCloud", iconColor = SoundcloudColor, isConnected = false),
             StreamingProvider(id = "youtube_music", name = "YouTube Music", iconColor = YouTubeColor, isConnected = true)

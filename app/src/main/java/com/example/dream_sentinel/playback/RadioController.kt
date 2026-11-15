@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -129,6 +131,32 @@ class RadioController @Inject constructor(
         }
     }
 
+    override suspend fun pauseForSourceSwitch(): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (mediaController == null && controllerFuture == null) return@withContext true
+        withTimeoutOrNull(5_000L) {
+            val controller = awaitController()
+            suspendCancellableCoroutine { continuation ->
+                val listener = object : Player.Listener {
+                    override fun onEvents(player: Player, events: Player.Events) {
+                        if (!player.playWhenReady && continuation.isActive) {
+                            controller.removeListener(this)
+                            continuation.resume(true)
+                        }
+                    }
+                }
+                controller.addListener(listener)
+                continuation.invokeOnCancellation {
+                    scope.launch { controller.removeListener(listener) }
+                }
+                controller.pause()
+                if (!controller.playWhenReady && continuation.isActive) {
+                    controller.removeListener(listener)
+                    continuation.resume(true)
+                }
+            }
+        } ?: false
+    }
+
     override fun resume() {
         scope.launch {
             _state.update { it.copy(errorMessage = null) }
@@ -226,15 +254,16 @@ class RadioController @Inject constructor(
                                 controller.addListener(playerListener)
                                 controller.setVolume(pendingVolume)
                             }
-                            continuation.resume(controller)
+                            if (continuation.isActive) continuation.resume(controller)
                         }
                         .onFailure { error ->
-                            continuation.resumeWithException(error)
+                            if (continuation.isActive) continuation.resumeWithException(error)
                         }
                 },
                 ContextCompat.getMainExecutor(context),
             )
-            continuation.invokeOnCancellation { future.cancel(false) }
+            // Play and source switching share this connection. Cancelling one
+            // waiter must not cancel the connection needed by the other callers.
         }
     }
 

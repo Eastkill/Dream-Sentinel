@@ -5,6 +5,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,7 +76,11 @@ fun MusicScreen(
     onRadioEvent: (RadioUiEvent) -> Unit = {},
     musicSource: MusicSource = MusicSource.RADIO, // selectedMusicSource,
     onTabSelected: (NavTab) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    sourceSwitchError: String? = null,
+    spotifyContent: @Composable () -> Unit = {
+        Text("Connect Spotify to control playback.", color = MainColorWhite)
+    },
 ) {
     var selectedLayer by remember { mutableStateOf("Rain") }
     var ambienceVolume by remember { mutableFloatStateOf(0.3f) }
@@ -87,6 +93,10 @@ fun MusicScreen(
         onSettingsClick = onSettingsClick,
         modifier = modifier
     ) {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        sourceSwitchError?.let {
+            Text(it, color = MainColorWhite, modifier = Modifier.padding(bottom = 8.dp))
+        }
         // Active Playlist Card ("Spotify Connected")
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -272,6 +282,8 @@ fun MusicScreen(
                         }
                     }
                 }
+                } else if (musicSource == MusicSource.SPOTIFY) {
+                    spotifyContent()
                 } else {
                     SpotifyPreviewContent(musicSource)
                 }
@@ -512,6 +524,7 @@ fun MusicScreen(
                 color = SideColorWhite,
                 fontSize = 12.sp
             )
+        }
         }
     }
 }

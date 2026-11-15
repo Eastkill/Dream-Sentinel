@@ -6,6 +6,7 @@ import com.example.dream_sentinel.domain.music.MusicPreferencesRepository
 import com.example.dream_sentinel.domain.radio.AddStationResult
 import com.example.dream_sentinel.domain.radio.RadioRepository
 import com.example.dream_sentinel.playback.RadioPlayer
+import com.example.dream_sentinel.playback.MusicPlaybackCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,6 +23,7 @@ class RadioViewModel @Inject constructor(
     private val repository: RadioRepository,
     private val player: RadioPlayer,
     private val musicPreferences: MusicPreferencesRepository,
+    private val playbackCoordinator: MusicPlaybackCoordinator,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RadioUiState())
@@ -118,12 +120,14 @@ class RadioViewModel @Inject constructor(
         _uiState.update { it.copy(volume = clamped) }
     }
 
-    /** Wybór stacji zawsze ją uruchamia. */
+    /** Wybór stacji uruchamia ją po potwierdzonym przełączeniu źródła. */
     private fun selectStation(stationId: String) {
         val station = _uiState.value.stations.firstOrNull { it.id == stationId } ?: return
         viewModelScope.launch {
-            repository.setCurrentStation(station.id)
-            player.play(station)
+            playbackCoordinator.withRadioPlayback {
+                repository.setCurrentStation(station.id)
+                player.play(station)
+            }
         }
     }
 
@@ -139,10 +143,18 @@ class RadioViewModel @Inject constructor(
 
     private fun togglePlayPause() {
         val current = _uiState.value.currentStation ?: return
-        if (player.state.value.station?.id != current.id) {
-            player.setSelectedStation(current)
+        if (player.state.value.isPlaying || player.state.value.isBuffering) {
+            player.pause()
+            return
         }
-        player.toggle()
+        viewModelScope.launch {
+            playbackCoordinator.withRadioPlayback {
+                if (player.state.value.station?.id != current.id) {
+                    player.setSelectedStation(current)
+                }
+                player.toggle()
+            }
+        }
     }
 
     private fun addStation(event: RadioUiEvent.AddStationSubmitted) {

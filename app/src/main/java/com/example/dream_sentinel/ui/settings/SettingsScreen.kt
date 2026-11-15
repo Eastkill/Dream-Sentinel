@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +46,8 @@ import com.example.dream_sentinel.ui.theme.SideColorWhite
 import com.example.dream_sentinel.R
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.dream_sentinel.domain.spotify.SpotifyConnection
 import com.example.dream_sentinel.domain.music.MusicSource
 import com.example.dream_sentinel.data.radio.RadioStation
 import com.example.dream_sentinel.ui.theme.RadioColor
@@ -60,14 +63,15 @@ import com.example.dream_sentinel.ui.theme.SideColorWhite
  */
 @Composable
 fun SettingsRoute(
-    viewModel: SettingsViewModel = remember { SettingsViewModel() },
+    viewModel: SettingsViewModel = hiltViewModel(),
     onBackClick: () -> Unit = {},
     onMusicSourceSelected: (MusicSource) -> Unit = {},
     radioStations: List<RadioStation> = emptyList(),
     currentStationId: String? = null,
     onStationSelect: (String) -> Unit = {},
+    spotifyUnlocked: Boolean = true,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val stateWithStations = remember(uiState, radioStations, currentStationId) {
         uiState.copy(
@@ -90,7 +94,10 @@ fun SettingsRoute(
             onStationSelect(stationId)
             onBackClick()
         },
-        onBackClick = onBackClick
+        onBackClick = onBackClick,
+        onSpotifyConnect = viewModel::connectSpotify,
+        onSpotifyDisconnect = viewModel::disconnectSpotify,
+        spotifyUnlocked = spotifyUnlocked,
     )
 }
 
@@ -104,7 +111,10 @@ fun SettingsScreen(
     onProviderClick: (String) -> Unit,
     onStationSelect: (String) -> Unit,
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSpotifyConnect: () -> Unit = {},
+    onSpotifyDisconnect: () -> Unit = {},
+    spotifyUnlocked: Boolean = true,
 ) {
     val scrollState = rememberScrollState()
 
@@ -161,6 +171,28 @@ fun SettingsScreen(
                         },
                         onClick = { onProviderClick(provider.id) }
                     )
+                    if (provider.id == "spotify") {
+                        if (!spotifyUnlocked) {
+                            Text("Unlock your device to use Spotify.", color = SideColorWhite)
+                        } else {
+                            Text("Status: ${state.spotify.connection.name.lowercase()}", color = SideColorWhite)
+                            state.spotify.failure?.let { Text(it.message, color = MainColorWhite) }
+                            Text("Allows playback control and reading the current track and artwork. This app does not store Spotify access or refresh tokens.", color = SideColorWhite)
+                            Row {
+                                if (state.spotify.connection != SpotifyConnection.CONNECTED) {
+                                    TextButton(
+                                        onClick = onSpotifyConnect,
+                                        enabled = state.spotify.connection != SpotifyConnection.CONNECTING &&
+                                            state.spotify.connection != SpotifyConnection.UNCONFIGURED,
+                                    ) { Text("Connect Spotify") }
+                                }
+                                if (state.spotify.connectionRequested) {
+                                    TextButton(onClick = onSpotifyDisconnect) { Text("Disconnect controls") }
+                                }
+                            }
+                            Text("Disconnecting controls does not pause music or revoke access.", color = SideColorWhite)
+                        }
+                    }
                 }
             }
         }
