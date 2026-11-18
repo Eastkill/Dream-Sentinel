@@ -3,6 +3,7 @@ package com.example.dream_sentinel.system.spotify
 import android.app.KeyguardManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import com.example.dream_sentinel.BuildConfig
 import com.example.dream_sentinel.domain.spotify.SpotifyConnection
 import com.example.dream_sentinel.domain.spotify.SpotifyController
@@ -68,12 +69,16 @@ class SpotifyAppRemoteController @Inject constructor(
     private var playerSubscription: Subscription<PlayerState>? = null
     private var capabilitiesSubscription: Subscription<Capabilities>? = null
     private var generation = 0L
-    private var hostAvailable = false
+    @Volatile private var hostAvailable = false
     private var silentReconnectAllowed = false
+    private var bindingContext: SpotifyBindingContext? = null
+    private val connectionTimeout = SpotifyConnectionWatchdog(scope)
 
     internal fun onHostAvailabilityChanged(available: Boolean) {
         scope.launch {
-            hostAvailable = available && !deviceLocked()
+            val nextAvailability = available && !deviceLocked()
+            if (hostAvailable != nextAvailability) debug("Host available=$nextAvailability")
+            hostAvailable = nextAvailability
             if (!hostAvailable) {
                 releaseSession(
                     if (state.value.connectionRequested) SpotifyConnection.SUSPENDED
@@ -142,6 +147,7 @@ class SpotifyAppRemoteController @Inject constructor(
             return
         }
         val expectedGeneration = ++generation
+        debug("Connecting: session=$expectedGeneration, explicitConsent=$showConsent")
         mutableState.update {
             it.copy(connection = SpotifyConnection.CONNECTING, sessionId = generation, failure = null)
         }
@@ -149,14 +155,27 @@ class SpotifyAppRemoteController @Inject constructor(
             .setRedirectUri(BuildConfig.SPOTIFY_REDIRECT_URI)
             .showAuthView(showConsent)
             .build()
+        val connectionContext = SpotifyBindingContext(context) {
+            showConsent && hostAvailable && !deviceLocked()
+        }
+        bindingContext = connectionContext
+        connectionTimeout.start {
+            if (generation == expectedGeneration && state.value.connection == SpotifyConnection.CONNECTING) {
+                debug("Connection timed out: session=$expectedGeneration")
+                fail(SpotifyFailure(SpotifyProblem.CONNECTION, "Spotify did not respond while connecting. No authorization result was received. Try connecting again."))
+            }
+        }
         try {
-            SpotifyAppRemote.connect(context, params, object : Connector.ConnectionListener {
+            SpotifyAppRemote.connect(connectionContext, params, object : Connector.ConnectionListener {
                 override fun onConnected(appRemote: SpotifyAppRemote) {
                     scope.launch {
                         if (generation != expectedGeneration || !hostAvailable || deviceLocked()) {
+                            debug("Ignoring inactive connection: session=$expectedGeneration")
                             SpotifyAppRemote.disconnect(appRemote)
                             return@launch
                         }
+                        connectionTimeout.cancel()
+                        debug("Connected: session=$expectedGeneration")
                         remote = appRemote
                         mutableState.update {
                             it.copy(connection = SpotifyConnection.CONNECTED, failure = null)
@@ -278,6 +297,7 @@ class SpotifyAppRemoteController @Inject constructor(
     }
 
     private fun fail(failure: SpotifyFailure) {
+        debug("Connection failure: problem=${failure.problem}")
         silentReconnectAllowed = false
         releaseSession(if (configured) SpotifyConnection.ERROR else SpotifyConnection.UNCONFIGURED)
         mutableState.update { it.copy(failure = failure) }
@@ -285,12 +305,16 @@ class SpotifyAppRemoteController @Inject constructor(
 
     private fun releaseSession(connection: SpotifyConnection) {
         generation++
+        connectionTimeout.cancel()
         playerSubscription?.cancel()
         capabilitiesSubscription?.cancel()
         playerSubscription = null
         capabilitiesSubscription = null
-        remote?.let(SpotifyAppRemote::disconnect)
+        runCatching { remote?.let(SpotifyAppRemote::disconnect) }
+            .onFailure { debug("Disconnect failure: type=${it.javaClass.simpleName}") }
         remote = null
+        bindingContext?.releaseBindings()
+        bindingContext = null
         mutableState.value = SpotifyState(
             connection = connection,
             connectionRequested = state.value.connectionRequested,
@@ -304,13 +328,20 @@ class SpotifyAppRemoteController @Inject constructor(
     private fun deviceLocked(): Boolean =
         (context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isDeviceLocked
 
-    private fun connectionFailure(error: Throwable): SpotifyFailure = when (error) {
-        is CouldNotFindSpotifyApp -> SpotifyFailure(SpotifyProblem.NOT_INSTALLED, "Install Spotify, sign in, then try again.")
-        is NotLoggedInException -> SpotifyFailure(SpotifyProblem.NOT_LOGGED_IN, "Open Spotify and sign in, then connect again.")
-        is UserNotAuthorizedException -> SpotifyFailure(SpotifyProblem.AUTHORIZATION, "Spotify permission is required. Use Connect to try again.")
-        is AuthenticationFailedException -> SpotifyFailure(SpotifyProblem.CONFIGURATION, "Check the Spotify Client ID, redirect URI and app signing fingerprint.")
-        is UnsupportedFeatureVersionException -> SpotifyFailure(SpotifyProblem.UNSUPPORTED, "Update Spotify to use this feature.")
-        else -> SpotifyFailure(SpotifyProblem.CONNECTION, "Spotify connection was lost. Music may still be playing.")
+    private fun connectionFailure(error: Throwable): SpotifyFailure {
+        debug("SDK failure: type=${error.javaClass.simpleName}")
+        return when (error) {
+            is CouldNotFindSpotifyApp -> SpotifyFailure(SpotifyProblem.NOT_INSTALLED, "Install Spotify, sign in, then try again.")
+            is NotLoggedInException -> SpotifyFailure(SpotifyProblem.NOT_LOGGED_IN, "Open Spotify and sign in, then connect again.")
+            is UserNotAuthorizedException -> SpotifyFailure(SpotifyProblem.AUTHORIZATION, "Spotify permission is required. Use Connect to try again.")
+            is AuthenticationFailedException -> SpotifyFailure(SpotifyProblem.CONFIGURATION, "Check the Spotify Client ID, redirect URI and app signing fingerprint.")
+            is UnsupportedFeatureVersionException -> SpotifyFailure(SpotifyProblem.UNSUPPORTED, "Update Spotify to use this feature.")
+            else -> SpotifyFailure(SpotifyProblem.CONNECTION, "Spotify connection was lost. Music may still be playing.")
+        }
+    }
+
+    private fun debug(message: String) {
+        if (BuildConfig.DEBUG) Log.d("DreamSpotify", message)
     }
 
     private companion object {
