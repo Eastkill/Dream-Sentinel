@@ -51,9 +51,7 @@ import com.example.dream_sentinel.domain.spotify.SpotifyConnection
 import com.example.dream_sentinel.domain.music.MusicSource
 import com.example.dream_sentinel.data.radio.RadioStation
 import com.example.dream_sentinel.ui.theme.RadioColor
-import com.example.dream_sentinel.ui.theme.SoundcloudColor
 import com.example.dream_sentinel.ui.theme.SpotifyColor
-import com.example.dream_sentinel.ui.theme.YouTubeColor
 import com.example.dream_sentinel.ui.theme.MainColorWhite
 import com.example.dream_sentinel.ui.theme.RadioColor
 import com.example.dream_sentinel.ui.theme.SideColorWhite
@@ -259,6 +257,8 @@ fun SettingsScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -271,8 +271,6 @@ fun SettingsScreenPreview() {
                 streamingProviders = listOf(
                     StreamingProvider("spotify", "Spotify Connection", SpotifyColor),
                     StreamingProvider("radio", "Radio", RadioColor),
-                    StreamingProvider("soundcloud", "SoundCloud", SoundcloudColor),
-                    StreamingProvider("youtube_music", "YouTube Music", YouTubeColor)
                 ),
                 radioStations = listOf(
                     RadioStation("1", "Groove Salad", "https://ice1.somafm.com/groovesalad-128-mp3", "Chillout"),

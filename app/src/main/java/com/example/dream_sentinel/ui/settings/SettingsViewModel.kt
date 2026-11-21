@@ -55,7 +55,6 @@ class SettingsViewModel @Inject constructor(
     fun onSearchQueryChanged(newQuery: String) {
         _uiState.update { it.copy(searchQuery = newQuery) }
     }
-
     fun connectSpotify() = spotifyController.connect()
     fun disconnectSpotify() = spotifyController.disconnect()
 
@@ -64,8 +63,6 @@ class SettingsViewModel @Inject constructor(
         return when (providerId) {
             "radio" -> MusicSource.RADIO
             "spotify" -> MusicSource.SPOTIFY
-            "soundcloud" -> MusicSource.SOUNDCLOUD
-            "youtube_music" -> MusicSource.YOUTUBEMUSIC
             else -> null
         }
     }

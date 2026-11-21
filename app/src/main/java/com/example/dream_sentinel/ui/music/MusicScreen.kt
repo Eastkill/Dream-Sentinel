@@ -64,9 +64,7 @@ import com.example.dream_sentinel.ui.theme.MainColor
 import com.example.dream_sentinel.ui.theme.MainColorWhite
 import com.example.dream_sentinel.ui.theme.SideColorWhite
 import com.example.dream_sentinel.ui.theme.RadioColor
-import com.example.dream_sentinel.ui.theme.SoundcloudColor
 import com.example.dream_sentinel.ui.theme.SpotifyColor
-import com.example.dream_sentinel.ui.theme.YouTubeColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,16 +122,12 @@ fun MusicScreen(
                                 id = when (musicSource) {
                                     MusicSource.RADIO -> R.drawable.ic_radio
                                     MusicSource.SPOTIFY -> R.drawable.ic_spotify
-                                    MusicSource.SOUNDCLOUD -> R.drawable.ic_soundcloud
-                                    MusicSource.YOUTUBEMUSIC -> R.drawable.ic_youtube
                                 }
                             ),
                             contentDescription = null,
                             tint = when (musicSource) {
                                 MusicSource.RADIO -> RadioColor
                                 MusicSource.SPOTIFY -> SpotifyColor
-                                MusicSource.SOUNDCLOUD -> SoundcloudColor
-                                MusicSource.YOUTUBEMUSIC -> YouTubeColor
                             },
                             modifier = Modifier.size(18.dp)
                         )
@@ -142,8 +136,6 @@ fun MusicScreen(
                             text = when (musicSource) {
                                 MusicSource.RADIO -> "Radio"
                                 MusicSource.SPOTIFY -> "Spotify"
-                                MusicSource.SOUNDCLOUD -> "Soundcloud"
-                                MusicSource.YOUTUBEMUSIC -> "YouTube Music"
                             },
                             color = MainColorWhite,
                             fontSize = 14.sp,
@@ -285,7 +277,7 @@ fun MusicScreen(
                 } else if (musicSource == MusicSource.SPOTIFY) {
                     spotifyContent()
                 } else {
-                    SpotifyPreviewContent(musicSource)
+                    PreviewContent(musicSource)
                 }
             }
         }
@@ -563,7 +555,7 @@ private fun SourceChip(
 }
 
 @Composable
-private fun SpotifyPreviewContent(musicSource: MusicSource) {
+private fun PreviewContent(musicSource: MusicSource) {
     var isPlaying by rememberSaveable { mutableStateOf(false) }
 
     Row(
@@ -599,12 +591,7 @@ private fun SpotifyPreviewContent(musicSource: MusicSource) {
             )
 
             Text(
-                text = when(musicSource){
-                    MusicSource.SPOTIFY ->  "Spotify · Preview"
-                    MusicSource.SOUNDCLOUD ->  "Soundcloud · Preview"
-                    MusicSource.YOUTUBEMUSIC ->  "YouTube Music · Preview"
-                    else -> ""
-                },
+                text = "Preview",
                 color = SideColorWhite,
                 fontSize = 12.sp
             )

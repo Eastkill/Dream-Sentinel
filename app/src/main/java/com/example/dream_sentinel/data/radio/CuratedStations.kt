@@ -70,5 +70,11 @@ object CuratedStations {
             streamUrl = "https://rs102-krk.rmfstream.pl/rmf_polski_rock",
             genre = "Polish rock",
         ),
+        RadioStation(
+            id = "radio-kampus",
+            name = "Radio Kampus",
+            streamUrl = "https://stream.radiokampus.fm/kampus",
+            genre = "Same sztosy",
+        ),
     )
 }

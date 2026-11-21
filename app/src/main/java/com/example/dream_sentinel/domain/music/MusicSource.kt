@@ -10,9 +10,7 @@ package com.example.dream_sentinel.domain.music
  */
 enum class MusicSource {
     RADIO,
-    SPOTIFY,
-    SOUNDCLOUD,
-    YOUTUBEMUSIC;
+    SPOTIFY;
 
     companion object {
         fun fromStorage(raw: String?): MusicSource =

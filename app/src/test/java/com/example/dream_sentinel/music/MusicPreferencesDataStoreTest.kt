@@ -73,7 +73,7 @@ class MusicPreferencesDataStoreTest {
     @Test
     fun `falls back to radio for an unknown stored source`() = runBlocking {
         // Uszkodzona/nieznana wartość w DataStore nie może wysadzić UI.
-        assertEquals(MusicSource.RADIO, MusicSource.fromStorage("YOUTUBE_MUSIC"))
+        assertEquals(MusicSource.RADIO, MusicSource.fromStorage("UNKNOWN_SOURCE"))
         assertEquals(MusicSource.RADIO, MusicSource.fromStorage(null))
     }
 }

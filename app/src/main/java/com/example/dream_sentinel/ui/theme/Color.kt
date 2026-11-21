@@ -12,5 +12,3 @@ val BlackColor = Color(0xFF211B37)
 //--------------
 val SpotifyColor = Color(0xFF8DDBAF)
 val RadioColor = Color(0xFF857BE2)
-val SoundcloudColor = Color(0xFFE98452)
-val YouTubeColor = Color(0xFFEF5D5D)
