@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Wiele stacji radiowych nadal nadaje strumienie po HTTP (bez TLS).
+    Bez tej konfiguracji Android blokuje takie połączenia (cleartext),
+    przez co część stacji nie odtwarza się wcale.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

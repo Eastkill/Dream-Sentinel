@@ -11,9 +11,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.dream_sentinel.R
 import com.example.dream_sentinel.ui.theme.RadioColor
-import com.example.dream_sentinel.ui.theme.SoundcloudColor
 import com.example.dream_sentinel.ui.theme.SpotifyColor
-import com.example.dream_sentinel.ui.theme.YouTubeColor
 
 @Composable
 fun BackArrowIcon(
@@ -67,8 +65,6 @@ fun ProviderIcon(
     when (id) {
         "spotify" -> SpotifyIcon(modifier = modifier, size = size, color = iconColor)
         "radio" -> RadioIcon(modifier = modifier, size = size, color = iconColor)
-        "soundcloud" -> SoundCloudIcon(modifier = modifier, size = size, color = iconColor)
-        "youtube_music" -> YouTubeMusicIcon(modifier = modifier, size = size, color = iconColor)
         else -> DefaultProviderIcon(modifier = modifier, size = size, color = iconColor)
     }
 }
@@ -90,28 +86,6 @@ fun RadioIcon(modifier: Modifier = Modifier, size: Dp = 22.dp, color: Color = Ra
     Icon(
         painter = painterResource(id = R.drawable.ic_radio),
         contentDescription = "Radio",
-        tint = color,
-        modifier = modifier.size(size)
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SoundCloudIcon(modifier: Modifier = Modifier, size: Dp = 22.dp, color: Color = SoundcloudColor) {
-    Icon(
-        painter = painterResource(id = R.drawable.ic_soundcloud),
-        contentDescription = "SoundCloud",
-        tint = color,
-        modifier = modifier.size(size)
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun YouTubeMusicIcon(modifier: Modifier = Modifier, size: Dp = 22.dp, color: Color = YouTubeColor) {
-    Icon(
-        painter = painterResource(id = R.drawable.ic_youtube),
-        contentDescription = "YouTube Music",
         tint = color,
         modifier = modifier.size(size)
     )

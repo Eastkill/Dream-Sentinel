@@ -13,6 +13,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -26,6 +27,33 @@ object DataStoreModule {
     ): DataStore<Preferences> {
         return PreferenceDataStoreFactory.create(
             produceFile = { context.preferencesDataStoreFile("alarm_preferences") }
+        )
+    }
+
+    /**
+     * Osobny plik DataStore dla radia, nie miesza się z preferencjami alarmu.
+     * Kwalifikator @Named("radio") odróżnia go od providera powyżej.
+     */
+    @Provides
+    @Singleton
+    @Named("radio")
+    fun provideRadioPreferencesDataStore(
+        @ApplicationContext context: Context
+    ): DataStore<Preferences> {
+        return PreferenceDataStoreFactory.create(
+            produceFile = { context.preferencesDataStoreFile("radio_preferences") }
+        )
+    }
+
+    /** Preferencje zakładki Music: wybrane źródło i głośność. */
+    @Provides
+    @Singleton
+    @Named("music")
+    fun provideMusicPreferencesDataStore(
+        @ApplicationContext context: Context
+    ): DataStore<Preferences> {
+        return PreferenceDataStoreFactory.create(
+            produceFile = { context.preferencesDataStoreFile("music_preferences") }
         )
     }
 }
